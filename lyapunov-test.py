@@ -1,7 +1,5 @@
 from scipy.integrate import RK45
 import numpy as np
-import matplotlib.pyplot as plt
-
 
 def build_vanderpol_oscillator(a=1, b=1, o=0.45, x0=1, v0=1, t0=0, t_bound=1e+5):
     def vanderpol(t, y):
@@ -24,7 +22,6 @@ def build_fc_oscillator05(x0=0, v0=0, t0=0, t_bound=1e+5):
 
 vs = []
 xs = []
-aa = []
 
 solver = build_fc_oscillator05()
 
@@ -43,7 +40,6 @@ for i in range(timesteps):
     solver2.step()
 
     d1 = np.sqrt((solver.y - solver2.y) ** 2)
-    xbi = solver2.y
     xb0 = solver.y + d0 * (solver2.y - solver.y) / d1
     solver2.y = xb0
     lsum = lsum + np.log(d1 / d0)
