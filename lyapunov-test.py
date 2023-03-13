@@ -1,48 +1,58 @@
 from scipy.integrate import RK45
 import numpy as np
+import matplotlib.pyplot as plt
+from tqdm import tqdm
 
-def build_vanderpol_oscillator(a=1, b=1, o=0.45, x0=1, v0=1, t0=0, t_bound=1e+5):
-    def vanderpol(t, y):
-        ydot = np.empty_like(y)
-        ydot[0] = y[1]
-        ydot[1] = a * np.sin(o * t) - b * (y[0] ** 2 - 1) * y[1] - y[0]
-        return ydot
-
-    return RK45(vanderpol, t0, [x0, v0], t_bound=t_bound, max_step=1)
-
-def build_fc_oscillator05(x0=0, v0=0, t0=0, t_bound=1e+5):
-    d = None
-    def oscillator(t, y):
-        ydot = np.empty_like(y) if d is None else d 
-        ydot[0] = y[1]
-        ydot[1] = np.sin(2 * t) - np.power(y[0], 7)
-        return ydot
-
-    return RK45(oscillator, t0, [x0, v0], t_bound=t_bound, max_step=1e-2)
+from systems import van_der_pol_oscillator, forced_conservative_nonlinear_oscillator05, forced_van_der_pol_oscillator, build_system
 
 vs = []
 xs = []
 
-solver = build_fc_oscillator05()
+params = []
+state = [0, 0]
+t0 = 0
+system = forced_conservative_nonlinear_oscillator05
 
-for i in range(1000):
+solver = build_system(system, params, state, t0)
+
+dt0 = 0
+while dt0 < 1000:
     solver.step()
+    dt0 = dt0 + solver.step_size
 
-xb0 = solver.y + np.random.randn(*solver.y.shape) * 1e-14
-solver2 = build_fc_oscillator05(xb0[0], xb0[1], solver.t)
-d0 = np.sqrt((solver.y - xb0) ** 2)
+pstate = np.copy(solver.y)
+pstate[0] = pstate[0] + np.random.randn() * 1e-12
 
+solver2 = build_system(system, params, pstate, solver.t)
 lsum = 0
 
-timesteps = 10000
-for i in range(timesteps):
+dt = 0
+dt2 = 0
+timesteps = 100000
+for i in tqdm(range(timesteps)):
     solver.step()
     solver2.step()
 
-    d1 = np.sqrt((solver.y - solver2.y) ** 2)
-    xb0 = solver.y + d0 * (solver2.y - solver.y) / d1
-    solver2.y = xb0
-    lsum = lsum + np.log(d1 / d0)
+    v = solver2.y - solver.y
+    d = np.linalg.norm(solver2.y - solver.y)
+    rs = 1 / np.sqrt(d)
+    solver2.y = solver.y + rs * (solver2.y - solver.y)
+    lsum = lsum + np.log(d)
 
-largest = np.max(lsum / timesteps)
-print(largest)
+    r = (np.cos((v[0]) * np.pi) + 1) / 2.0
+    g = (np.cos((v[1]) * np.pi) + 1) / 2.0
+    b = (np.sin((v[0]) * np.pi) + 1) / 4.0 + (np.sin((v[1]) * np.pi) + 1) / 4.0
+
+    plt.plot([solver.y[0], solver.y_old[0]], [solver.y[1], solver.y_old[1]], linewidth=0.25, color=(r,g,b), alpha=0.2)
+
+    dt = dt + solver.step_size
+    dt2 = dt2 + solver2.step_size
+
+l = lsum / dt
+
+print(dt)
+print(dt2)
+
+largest = np.max(l)
+print(l)
+plt.savefig(f'tmp{np.random.randn()}.png', dpi=512)
